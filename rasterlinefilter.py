@@ -18,13 +18,21 @@ def make_parser():
     parser.add_argument("--step-length", type=float, default=10.,
         help="How much line to skip before adding a node, if needed"
     )
+    parser.add_argument("--min-steps", type=int, default=1,
+        help="How many step-length steps in a class are needed to "
+             "switch to that class - setting for all classes"
+    )
+    parser.add_argument("--class-steps", type=int, action='append', default=[],
+        help="How many step-length steps in the last class defined are needed to "
+             "switch to that class - class specific setting"
+    )
     parser.add_argument("--class", type=str, dest="class_", action='append',
-        help="Name of an output classification class"
+        help="Name of an output classification class", default=[]
     )
     parser.add_argument("--values", type=str, action='append',
         help="Raster values (classes), space or comma separated, "
              "for preceding output class.  NoData for no data, * for "
-             "all remaining values"
+             "all remaining values", default=[]
     )
     parser.add_argument("--fields", type=str, nargs='+',
         help="Field names, space or , separated, "
@@ -54,13 +62,18 @@ def main():
 
 def validate_options(opt):
     
-    print("%d classes, %d value lists, %s" % 
-          (len(opt.class_), len(opt.values), 
-           "ok" if len(opt.class_) == len(opt.values) else
-           "ERROR: MUST BE EQUAL NUMBER OF EACH"))
-           
-    if len(opt.class_) != len(opt.values):
+    ok = (len(opt.class_) == len(opt.values) and
+          (not opt.class_steps or 
+           len(opt.class_steps) == len(opt.class_)))
+    
+    print("%d classes, %d value lists, %d class specific min-steps %s" % 
+          (len(opt.class_), len(opt.values), len(opt.class_steps), 
+           "ok" if ok else "ERROR: MUST BE EQUAL NUMBER OF EACH"))
+    if not ok:
         return False
+        
+    if not opt.class_steps:
+        opt.class_steps = [opt.min_steps] * len(opt.class_)
     
     # split space / comma separated values into lists
     ndint = lambda x: x if x in ('NoData', '*') else int(x)
@@ -72,9 +85,11 @@ def validate_options(opt):
     new_order = sorted(range(len(opt.values)), key=lambda k: '*' in opt.values[k])
     opt.values = [opt.values[i] for i in new_order]
     opt.class_ = [opt.class_[i] for i in new_order]
+    opt.class_steps = [opt.class_steps[i] for i in new_order]
     
-    for class_, values in zip(opt.class_, opt.values):
-        print(class_)
+    for class_, values, steps in zip(opt.class_, opt.values, opt.class_steps):
+        print("'%s', requires %d step%s in:" % 
+              (class_, steps, 's' if steps > 1 else ''))
         print("  %s" % values)
 if __name__ == '__main__':
     main()
