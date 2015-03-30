@@ -32,11 +32,16 @@ def classify_lines(opt, lines, grid):
     data_source = driver.CreateDataSource(opt.output)
     output = data_source.CreateLayer(
         os.path.basename(opt.output), srs, ogr.wkbLineString)
-    output.CreateField(ogr.FieldDefn("id", ogr.OFTInteger))
+        
+    layer_def = lines.GetLayerDefn()
+    for i in range(layer_def.GetFieldCount()):
+        if layer_def.GetFieldDefn(i).GetName() in opt.fields:
+            output.CreateField(layer_def.GetFieldDefn(i))
 
-    for id_, line in iterate_lines(lines, srs):
+    for value, line in iterate_lines(lines, srs, opt.fields):
         feature = ogr.Feature(output.GetLayerDefn())
-        feature.SetField("id", id_)
+        for field in opt.fields:
+            feature.SetField(field, value[field])
         linestring = ogr.Geometry(ogr.wkbLineString)
         for point, is_vertex in walk_line(line, opt.step_length, opt.stretch):
             linestring.AddPoint(point[0], point[1])
@@ -65,17 +70,19 @@ def get_lines(opt):
     layer = datasource.GetLayer(0)
     layer._datasource = datasource  # prevent seg. fault
     return layer
-
-def iterate_lines(layer, srs):
+def iterate_lines(layer, srs, fields):
     """iterate_lines - Generator yielding line strings with feature id
 
     :Parameters:
     - `layer`: OGR layer
     - `srs`: transform to this SRS
+    - `fields`: list of field names to copy
     """
 
     for feature in layer:
-        id_ = feature.GetFieldAsInteger('id')
+        value = {}
+        for field in fields:
+            value[field] = feature.GetField(field)
         lines = feature.GetGeometryRef()
         lines = lines.Clone()
         lines.TransformTo(srs)
@@ -83,7 +90,7 @@ def iterate_lines(layer, srs):
             # otherwise it's a MULTILINESTRING
             lines = [lines]
         for line in lines:
-            yield (id_, line)
+            yield value, line
 def make_parser():
      
     parser = argparse.ArgumentParser(
