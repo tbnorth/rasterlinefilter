@@ -1,0 +1,135 @@
+<PAMDataset>
+  <Metadata>
+    <MDI key="DataType">Thematic</MDI>
+  </Metadata>
+  <Metadata domain="Esri">
+    <MDI key="PyramidResamplingType">NEAREST</MDI>
+  </Metadata>
+  <PAMRasterBand band="1">
+    <GDALRasterAttributeTable>
+      <FieldDefn index="0">
+        <Name>Rowid</Name>
+        <Type>0</Type>
+        <Usage>0</Usage>
+      </FieldDefn>
+      <FieldDefn index="1">
+        <Name>VALUE</Name>
+        <Type>0</Type>
+        <Usage>0</Usage>
+      </FieldDefn>
+      <FieldDefn index="2">
+        <Name>COUNT</Name>
+        <Type>0</Type>
+        <Usage>0</Usage>
+      </FieldDefn>
+      <FieldDefn index="3">
+        <Name>LAND_COVER_CLASS</Name>
+        <Type>2</Type>
+        <Usage>0</Usage>
+      </FieldDefn>
+      <Row index="0">
+        <F>0</F>
+        <F>0</F>
+        <F>488</F>
+        <F>Unclassified</F>
+      </Row>
+      <Row index="1">
+        <F>1</F>
+        <F>11</F>
+        <F>14832319</F>
+        <F>Open Water</F>
+      </Row>
+      <Row index="2">
+        <F>2</F>
+        <F>21</F>
+        <F>9343757</F>
+        <F>Developed, Open Space</F>
+      </Row>
+      <Row index="3">
+        <F>3</F>
+        <F>22</F>
+        <F>2762606</F>
+        <F>Developed, Low Intensity</F>
+      </Row>
+      <Row index="4">
+        <F>4</F>
+        <F>23</F>
+        <F>1332952</F>
+        <F>Developed, Medium Intensity</F>
+      </Row>
+      <Row index="5">
+        <F>5</F>
+        <F>24</F>
+        <F>435532</F>
+        <F>Developed, High Intensity</F>
+      </Row>
+      <Row index="6">
+        <F>6</F>
+        <F>31</F>
+        <F>363223</F>
+        <F>Barren Land</F>
+      </Row>
+      <Row index="7">
+        <F>7</F>
+        <F>41</F>
+        <F>34673986</F>
+        <F>Deciduous Forest</F>
+      </Row>
+      <Row index="8">
+        <F>8</F>
+        <F>42</F>
+        <F>6889410</F>
+        <F>Evergreen Forest</F>
+      </Row>
+      <Row index="9">
+        <F>9</F>
+        <F>43</F>
+        <F>6305141</F>
+        <F>Mixed Forest</F>
+      </Row>
+      <Row index="10">
+        <F>10</F>
+        <F>52</F>
+        <F>5028585</F>
+        <F>Shrub/Scrub</F>
+      </Row>
+      <Row index="11">
+        <F>11</F>
+        <F>71</F>
+        <F>6215287</F>
+        <F>Herbaceuous</F>
+      </Row>
+      <Row index="12">
+        <F>12</F>
+        <F>81</F>
+        <F>18254863</F>
+        <F>Hay/Pasture</F>
+      </Row>
+      <Row index="13">
+        <F>13</F>
+        <F>82</F>
+        <F>90212710</F>
+        <F>Cultivated Crops</F>
+      </Row>
+      <Row index="14">
+        <F>14</F>
+        <F>90</F>
+        <F>30442756</F>
+        <F>Woody Wetlands</F>
+      </Row>
+      <Row index="15">
+        <F>15</F>
+        <F>95</F>
+        <F>15761162</F>
+        <F>Emergent Herbaceuous Wetlands</F>
+      </Row>
+    </GDALRasterAttributeTable>
+    <Metadata>
+      <MDI key="RepresentationType">THEMATIC</MDI>
+      <MDI key="STATISTICS_MINIMUM">11</MDI>
+      <MDI key="STATISTICS_MAXIMUM">95</MDI>
+      <MDI key="STATISTICS_MEAN">53.832496587955</MDI>
+      <MDI key="STATISTICS_STDDEV">27.86381603756</MDI>
+    </Metadata>
+  </PAMRasterBand>
+</PAMDataset>
