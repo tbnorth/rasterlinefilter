@@ -8,6 +8,8 @@ import argparse
 import os
 import sys
 
+from math import sqrt
+
 from osgeo import gdal
 from osgeo import gdalconst
 from osgeo import gdal_array
@@ -190,7 +192,45 @@ def walk_line(line, step_length, tolerance):
     :yields: OGR Point
     """
 
+    prev_point = None
+    
     for point in line.GetPoints():
-        yield point, True
+        
+        if prev_point is None:
+            # must be first vertex
+            prev_point = point
+            continue
+            #X yield point, True
+        
+        sep = point[0]-prev_point[0], point[1]-prev_point[1]
+        
+        distance = sqrt(sep[0]*sep[0] + sep[1]*sep[1])
+        
+        min_steps = int(distance / (step_length+tolerance))
+        max_steps = int(distance / (step_length-tolerance))
+        min_dist = min_steps * step_length
+        max_dist = max_steps * step_length
+        if abs(min_dist - distance) < abs(max_dist - distance):
+            print(distance, min_dist, max_dist, '=>min')
+            steps = int(min_steps)
+        else:
+            print(distance, min_dist, max_dist, '=>max')
+            steps = int(max_steps)
+        if steps < 1:
+            steps = 1
+        dx = sep[0] / steps
+        dy = sep[1] / steps
+        assert abs(step_length - sqrt(dx*dx + dy*dy)) <= tolerance
+        assert abs(step_length - distance / steps) <= tolerance
+        
+        x,y = prev_point
+        for n in range(steps):  #X -1, don't send the last point
+            yield (x, y), n == 0
+            x += dx
+            y += dy
+        
+        prev_point = point
+        
+    yield point, True  # last point on linestring
 if __name__ == '__main__':
     main()
