@@ -6,6 +6,7 @@ Terry Brown, Terry_N_Brown@yahoo.com, Tue Mar 10 13:07:28 2015
 
 import argparse
 import os
+import struct
 import sys
 
 from math import sqrt
@@ -17,6 +18,8 @@ from osgeo import ogr
 from osgeo import osr
 
 import numpy as np
+class OutOfBounds(Exception):
+    pass
 def classify_lines(opt, lines, grid):
     """classify_lines - 
 
@@ -39,10 +42,19 @@ def classify_lines(opt, lines, grid):
             output.CreateField(layer_def.GetFieldDefn(i))
 
     for value, line in iterate_lines(lines, srs, opt.fields):
+        
+        points = []        
+        for point, is_vertex in walk_line(line, opt.step_length, opt.stretch):
+            points.append(point)
+        
+        class_ = [get_raw_class(point, grid) for point in points]
+
         feature = ogr.Feature(output.GetLayerDefn())
         for field in opt.fields:
             feature.SetField(field, value[field])
+            
         linestring = ogr.Geometry(ogr.wkbLineString)
+        
         for point, is_vertex in walk_line(line, opt.step_length, opt.stretch):
             linestring.AddPoint(point[0], point[1])
         feature.SetGeometry(linestring)
@@ -58,6 +70,18 @@ def get_grid(opt):
     """
 
     grid = gdal.Open(opt.grid)
+    
+    gt = grid.GetGeoTransform()
+    grid._gt_rows = grid.RasterYSize
+    grid._gt_cols = grid.RasterXSize
+    grid._gt_left = gt[0]
+    grid._gt_top = gt[3]
+    grid._gt_sizex = gt[1]
+    grid._gt_sizey = -gt[5]
+    grid._gt_bottom = grid._gt_top - grid._gt_sizey * grid._gt_rows
+    grid._gt_right = grid._gt_left + grid._gt_sizex * grid._gt_cols
+
+
     return grid
 def get_lines(opt):
     """get_lines - get OGR line data source
@@ -70,6 +94,37 @@ def get_lines(opt):
     layer = datasource.GetLayer(0)
     layer._datasource = datasource  # prevent seg. fault
     return layer
+def get_raw_class(point, grid, band_num=1):
+    """get_raw_class - get grid value for point
+
+    Assumes same projection (ensured elsewhere)
+
+    :param point point: OGR point
+    :param GDAL grid grid: GDAL grid
+    :return: grid value at point
+    """
+
+    cellx = int( (point[0] - grid._gt_left) / grid._gt_sizex )
+    celly = int( (grid._gt_top - point[1]) / grid._gt_sizey )
+    
+    if (cellx < 0 or celly < 0 or 
+        cellx > grid._gt_cols-1 or celly > grid._gt_rows-1):
+        raise OutOfBounds
+        
+    band = grid.GetRasterBand(band_num)
+    
+    value = band.ReadRaster(cellx, celly, 1, 1, band.DataType)
+    
+    fmt = {
+        gdal.GDT_Byte: 'b',
+        gdal.GDT_UInt16: 'h',
+    }
+    
+    value = struct.unpack(fmt[band.DataType] , value)  # FIXME
+    print(value)
+    return value
+
+    
 def iterate_lines(layer, srs, fields):
     """iterate_lines - Generator yielding line strings with feature id
 
