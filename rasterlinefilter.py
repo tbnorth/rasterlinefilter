@@ -38,8 +38,7 @@ def classify_lines(opt, lines, grid):
         feature = ogr.Feature(output.GetLayerDefn())
         feature.SetField("id", id_)
         linestring = ogr.Geometry(ogr.wkbLineString)
-        for point, is_vertex in walk_line(line, opt.step_length, opt.tolerance):
-            print(id_, point, is_vertex)
+        for point, is_vertex in walk_line(line, opt.step_length, opt.stretch):
             linestring.AddPoint(point[0], point[1])
         feature.SetGeometry(linestring)
         output.CreateFeature(feature)
@@ -95,8 +94,8 @@ def make_parser():
     parser.add_argument("--step-length", type=float, default=10.,
         help="How much line to skip before adding a node, if needed"
     )
-    parser.add_argument("--tolerance", type=float, default=1.,
-        help="Increase / decrease step-length this much to get to next vertex"
+    parser.add_argument("--stretch", type=float, default=1.,
+        help="Stretch final step this much to get to next vertex"
     )
     parser.add_argument("--min-steps", type=int, default=1,
         help="How many step-length steps in a class are needed to "
@@ -181,12 +180,12 @@ def validate_options(opt):
         print("  %s" % values)
     
     return ok
-def walk_line(line, step_length, tolerance):
+def walk_line(line, step_length, stretch):
     """walk_line - generator to return points on a line
 
     :param OGR LineString line: line to walk
     :param float step_length: step distance
-    :param float tolerance: distance to expand / contract step_length if
+    :param float stretch: distance to expand / contract step_length if
                             it allows reaching the next vertex on
                             the line
     :yields: OGR Point
@@ -196,38 +195,26 @@ def walk_line(line, step_length, tolerance):
     
     for point in line.GetPoints():
         
-        if prev_point is None:
-            # must be first vertex
+        if prev_point is None:  # must be first vertex
             prev_point = point
             continue
-            #X yield point, True
         
         sep = point[0]-prev_point[0], point[1]-prev_point[1]
         
         distance = sqrt(sep[0]*sep[0] + sep[1]*sep[1])
         
-        min_steps = int(distance / (step_length+tolerance))
-        max_steps = int(distance / (step_length-tolerance))
-        min_dist = min_steps * step_length
-        max_dist = max_steps * step_length
-        if abs(min_dist - distance) < abs(max_dist - distance):
-            print(distance, min_dist, max_dist, '=>min')
-            steps = int(min_steps)
-        else:
-            print(distance, min_dist, max_dist, '=>max')
-            steps = int(max_steps)
-        if steps < 1:
-            steps = 1
+        steps = max(1, int(distance / step_length + 0.5))
+
         dx = sep[0] / steps
         dy = sep[1] / steps
-        assert abs(step_length - sqrt(dx*dx + dy*dy)) <= tolerance
-        assert abs(step_length - distance / steps) <= tolerance
         
         x,y = prev_point
-        for n in range(steps):  #X -1, don't send the last point
+        for n in range(steps):
             yield (x, y), n == 0
             x += dx
             y += dy
+            if sqrt(pow(x-point[0], 2) + pow(y-point[1], 2)) <= stretch:
+                break  # don't emit a very short step
         
         prev_point = point
         
