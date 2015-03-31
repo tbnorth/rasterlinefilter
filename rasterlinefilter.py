@@ -39,13 +39,14 @@ def classify_lines(opt, lines, grid):
         data_source = driver.CreateDataSource(opt.output)
         output = data_source.CreateLayer(
             os.path.basename(opt.output), srs, ogr.wkbLineString)
+        layer_def = lines.GetLayerDefn()
+        for i in range(layer_def.GetFieldCount()):
+            if layer_def.GetFieldDefn(i).GetName() in opt.fields:
+                output.CreateField(layer_def.GetFieldDefn(i))
+        output.CreateField(ogr.FieldDefn('lineclass', ogr.OFTString))
     else:
         output = None
         
-    layer_def = lines.GetLayerDefn()
-    for i in range(layer_def.GetFieldCount()):
-        if layer_def.GetFieldDefn(i).GetName() in opt.fields:
-            output.CreateField(layer_def.GetFieldDefn(i))
             
     class_count = defaultdict(lambda: 0)
 
@@ -84,20 +85,32 @@ def classify_lines(opt, lines, grid):
                 count += 1
             elif count >= opt.class_steps[cur_class]:
                 for i in range(count):
-                    final_class[n-i] = cur_class
+                    final_class[n-i-1] = cur_class
+                count = 0
                 cur_class = reclass[n]
         if count >= opt.class_steps[cur_class]:
             for i in range(count):
                 final_class[n-i] = cur_class
+                
+        for i,j,k in zip(class_raw, reclass, final_class):
+            print(value['id'],i,j,k)
 
-        feature = ogr.Feature(output.GetLayerDefn())
-        for field in opt.fields:
-            feature.SetField(field, value[field])
+        cur_class = None
+        for n in range(len(points)):
+            if cur_class != final_class[n]:
+                if cur_class is not None:
+                    linestring.AddPoint(points[n][0], points[n][1])
+                    feature.SetGeometry(linestring)
+                    output.CreateFeature(feature)
+                    feature.Destroy()
+                cur_class = final_class[n]
+                feature = ogr.Feature(output.GetLayerDefn())
+                for field in opt.fields:
+                    feature.SetField(field, value[field])
+                feature.SetField('lineclass', opt.class_[cur_class])
+                linestring = ogr.Geometry(ogr.wkbLineString)
+            linestring.AddPoint(points[n][0], points[n][1])
             
-        linestring = ogr.Geometry(ogr.wkbLineString)
-        
-        for point, is_vertex in walk_line(line, opt.step_length, opt.stretch):
-            linestring.AddPoint(point[0], point[1])
         feature.SetGeometry(linestring)
         output.CreateFeature(feature)
         feature.Destroy()
