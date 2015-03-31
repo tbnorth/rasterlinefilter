@@ -34,43 +34,42 @@ def classify_lines(opt, lines, grid):
     """
 
     srs = osr.SpatialReference(grid.GetProjectionRef())
-    if not opt.get_classes:
+    
+    if opt.get_classes:
+        output = None
+    else:
         driver = ogr.GetDriverByName("ESRI Shapefile")
         data_source = driver.CreateDataSource(opt.output)
         output = data_source.CreateLayer(
             os.path.basename(opt.output), srs, ogr.wkbLineString)
         layer_def = lines.GetLayerDefn()
-        for i in range(layer_def.GetFieldCount()):
+        for i in range(layer_def.GetFieldCount()):  # copy field def's
             if layer_def.GetFieldDefn(i).GetName() in opt.fields:
                 output.CreateField(layer_def.GetFieldDefn(i))
         output.CreateField(ogr.FieldDefn('lineclass', ogr.OFTString))
-    else:
-        output = None
-        
             
-    class_count = defaultdict(lambda: 0)
-
+    class_count = defaultdict(lambda: 0)  # points in each class
+    
+    raw2reclass = {}
+    for n, values in enumerate(opt.values):
+        for i in values:
+            raw2reclass[i] = n
+    
     for value, line in iterate_lines(lines, srs, opt.fields):
+
+        # collect and classify all the points for the line before
+        # emitting anything.  'points are' ((x,y), is_vertex)
+        points = [i for i in walk_line(line, opt.step_length, opt.stretch)]
         
-        points = []        
-        for point, is_vertex in walk_line(line, opt.step_length, opt.stretch):
-            points.append(point)
-        
-        class_raw = [get_raw_class(point, grid) for point in points]
+        class_raw = [get_raw_class(point[0], grid) for point in points]
+
         for i in class_raw:
             class_count[i] += 1
             
         if not output:
             continue
 
-        reclass = []
-        for class_ in class_raw:
-            for n, i in enumerate(opt.values):
-                if class_ in i:
-                    reclass.append(n)
-                    break
-            else:
-                raise UnknownClass()
+        reclass = [raw2reclass[i] for i in class_raw]
         
         final_class = list(reclass)
         
@@ -99,7 +98,7 @@ def classify_lines(opt, lines, grid):
         for n in range(len(points)):
             if cur_class != final_class[n]:
                 if cur_class is not None:
-                    linestring.AddPoint(points[n][0], points[n][1])
+                    linestring.AddPoint(points[n][0][0], points[n][0][1])
                     feature.SetGeometry(linestring)
                     output.CreateFeature(feature)
                     feature.Destroy()
@@ -109,7 +108,7 @@ def classify_lines(opt, lines, grid):
                     feature.SetField(field, value[field])
                 feature.SetField('lineclass', opt.class_[cur_class])
                 linestring = ogr.Geometry(ogr.wkbLineString)
-            linestring.AddPoint(points[n][0], points[n][1])
+            linestring.AddPoint(points[n][0][0], points[n][0][1])
             
         feature.SetGeometry(linestring)
         output.CreateFeature(feature)
