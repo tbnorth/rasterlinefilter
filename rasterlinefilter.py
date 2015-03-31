@@ -9,6 +9,7 @@ import os
 import struct
 import sys
 
+from collections import defaultdict
 from math import sqrt
 
 from osgeo import gdal
@@ -19,6 +20,8 @@ from osgeo import osr
 
 import numpy as np
 class OutOfBounds(Exception):
+    pass
+class UnknownClass(Exception):
     pass
 def classify_lines(opt, lines, grid):
     """classify_lines - 
@@ -31,15 +34,20 @@ def classify_lines(opt, lines, grid):
     """
 
     srs = osr.SpatialReference(grid.GetProjectionRef())
-    driver = ogr.GetDriverByName("ESRI Shapefile")
-    data_source = driver.CreateDataSource(opt.output)
-    output = data_source.CreateLayer(
-        os.path.basename(opt.output), srs, ogr.wkbLineString)
+    if not opt.get_classes:
+        driver = ogr.GetDriverByName("ESRI Shapefile")
+        data_source = driver.CreateDataSource(opt.output)
+        output = data_source.CreateLayer(
+            os.path.basename(opt.output), srs, ogr.wkbLineString)
+    else:
+        output = None
         
     layer_def = lines.GetLayerDefn()
     for i in range(layer_def.GetFieldCount()):
         if layer_def.GetFieldDefn(i).GetName() in opt.fields:
             output.CreateField(layer_def.GetFieldDefn(i))
+            
+    class_count = defaultdict(lambda: 0)
 
     for value, line in iterate_lines(lines, srs, opt.fields):
         
@@ -47,7 +55,40 @@ def classify_lines(opt, lines, grid):
         for point, is_vertex in walk_line(line, opt.step_length, opt.stretch):
             points.append(point)
         
-        class_ = [get_raw_class(point, grid) for point in points]
+        class_raw = [get_raw_class(point, grid) for point in points]
+        for i in class_raw:
+            class_count[i] += 1
+            
+        if not output:
+            continue
+
+        reclass = []
+        for class_ in class_raw:
+            for n, i in enumerate(opt.values):
+                if class_ in i:
+                    reclass.append(n)
+                    break
+            else:
+                raise UnknownClass()
+        
+        final_class = list(reclass)
+        
+        cur_class = None
+        for n in range(len(reclass)):
+            if cur_class is None:
+                count = 1
+                prev_class = reclass[n]
+                cur_class = reclass[n]
+                continue
+            if reclass[n] == cur_class:
+                count += 1
+            elif count >= opt.class_steps[cur_class]:
+                for i in range(count):
+                    final_class[n-i] = cur_class
+                cur_class = reclass[n]
+        if count >= opt.class_steps[cur_class]:
+            for i in range(count):
+                final_class[n-i] = cur_class
 
         feature = ogr.Feature(output.GetLayerDefn())
         for field in opt.fields:
@@ -61,7 +102,10 @@ def classify_lines(opt, lines, grid):
         output.CreateFeature(feature)
         feature.Destroy()
         
-    data_source.Destroy()
+    if output:
+        data_source.Destroy()
+    
+    return class_count
 def get_grid(opt):
     """get_grid - get GDAL grid data source
 
@@ -120,8 +164,7 @@ def get_raw_class(point, grid, band_num=1):
         gdal.GDT_UInt16: 'h',
     }
     
-    value = struct.unpack(fmt[band.DataType] , value)  # FIXME
-    print(value)
+    value = struct.unpack(fmt[band.DataType], value)[0]
     return value
 
     
@@ -186,6 +229,9 @@ def make_parser():
     parser.add_argument("--band", type=int, default=0,
         help="Raster band to use"
     )
+    parser.add_argument("--get-classes", action='store_true',
+        help="Just display a frequency table of classes seen"
+    )
     parser.add_argument("lines", type=str,
         help="Path to OGR datasource (shapefile) containing lines"
     )
@@ -208,7 +254,15 @@ def main():
     lines = get_lines(opt)
     grid = get_grid(opt)
 
-    classify_lines(opt, lines, grid)
+    classes = classify_lines(opt, lines, grid)
+
+    if opt.get_classes:
+        for k, v in classes.items():
+            print(k, v)
+
+    print(opt.values)
+    print(opt.class_)
+    print(opt.class_steps)
 def validate_options(opt):
     
     ok = (len(opt.class_) == len(opt.values) and
