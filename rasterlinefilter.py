@@ -81,27 +81,39 @@ def classify_lines(opt, lines, grid):
                 counts[start:end] = [end-start] * (end-start)
                 start = end
             end += 1
+            
+        # start in the middle of the list
+        n0 = int(len(reclass) / 2)
+        n1 = n0
+        # move outwards looking for a block that meets
+        # its class_steps threshold
+        while True:
+            if counts[n0] >= opt.class_steps[reclass[n0]]:
+                n = n0
+                break
+            if counts[n1] >= opt.class_steps[reclass[n1]]:
+                n = n1
+                break
+            if n0 == 0 and n1 == len(reclass)-1:
+                n = None
+                break
+            n0 = max(0, n0-1)
+            n1 = min(len(reclass)-1, n1+1)
 
         final_class = list(reclass)
-        
-        cur_class = None
-        for n in range(len(reclass)):
-            if cur_class is None:
-                count = 1
-                prev_class = reclass[n]
-                cur_class = reclass[n]
-                continue
-            if reclass[n] == cur_class:
-                count += 1
-            elif count >= opt.class_steps[cur_class]:
-                for i in range(count):
-                    final_class[n-i-1] = cur_class
-                count = 0
-                cur_class = reclass[n]
-        if count >= opt.class_steps[cur_class]:
-            for i in range(count):
-                final_class[n-i] = cur_class
 
+        # propagate that block outwards to fill deficient blocks
+        if n is not None:
+            for limit, delta in (0, -1), (len(reclass)-1, +1):
+                i = n
+                class_ = reclass[i]
+                while i != limit:
+                    if counts[i] >= opt.class_steps[reclass[i]]:
+                        class_ = reclass[i]
+                    else:
+                        final_class[i] = class_
+                    i += delta
+        
         cur_class = None
         for n in range(len(points)):
             if cur_class != final_class[n]:
