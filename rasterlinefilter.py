@@ -71,6 +71,17 @@ def classify_lines(opt, lines, grid):
 
         reclass = [raw2reclass[i] for i in class_raw]
         
+        # make a list of the block sizes for each block, i.e.
+        # 0 0 0 0 1 1 1 0 0 1 1 1 1 1 1  <- reclass
+        # 4 4 4 4 3 3 3 2 2 6 6 6 6 6 6  <- counts
+        counts = [0] * len(reclass)
+        start, end = 0, 1
+        while end <= len(reclass):
+            if end == len(reclass) or reclass[start] != reclass[end]:
+                counts[start:end] = [end-start] * (end-start)
+                start = end
+            end += 1
+
         final_class = list(reclass)
         
         cur_class = None
@@ -90,9 +101,6 @@ def classify_lines(opt, lines, grid):
         if count >= opt.class_steps[cur_class]:
             for i in range(count):
                 final_class[n-i] = cur_class
-                
-        for i,j,k in zip(class_raw, reclass, final_class):
-            print(value['id'],i,j,k)
 
         cur_class = None
         for n in range(len(points)):
@@ -271,10 +279,6 @@ def main():
     if opt.get_classes:
         for k, v in classes.items():
             print(k, v)
-
-    print(opt.values)
-    print(opt.class_)
-    print(opt.class_steps)
 def validate_options(opt):
     
     ok = (len(opt.class_) == len(opt.values) and
