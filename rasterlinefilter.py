@@ -55,13 +55,21 @@ def classify_lines(opt, lines, grid):
         for i in values:
             raw2reclass[i] = n
     
+    done = 0
     for value, line in iterate_lines(lines, srs, opt.fields):
+        
+        if opt.progress and done % opt.progress == 0:
+            print("Done %d" % done)
+        done += 1
 
         # collect and classify all the points for the line before
         # emitting anything.  'points are' ((x,y), is_vertex)
         points = [i for i in walk_line(line, opt.step_length, opt.stretch)]
         
-        class_raw = [get_raw_class(point[0], grid) for point in points]
+        try:
+            class_raw = [get_raw_class(point[0], grid) for point in points]
+        except OutOfBounds:
+            continue
 
         for i in class_raw:
             class_count[i] += 1
@@ -114,7 +122,9 @@ def classify_lines(opt, lines, grid):
                         final_class[i] = class_
                     i += delta
         
+        # emit lines
         cur_class = None
+        points_out = 0
         for n in range(len(points)):
             if cur_class != final_class[n]:
                 if cur_class is not None:
@@ -122,13 +132,17 @@ def classify_lines(opt, lines, grid):
                     feature.SetGeometry(linestring)
                     output.CreateFeature(feature)
                     feature.Destroy()
+                    points_out = 0
                 cur_class = final_class[n]
                 feature = ogr.Feature(output.GetLayerDefn())
                 for field in opt.fields:
                     feature.SetField(field, value[field])
                 feature.SetField('lineclass', opt.class_[cur_class])
                 linestring = ogr.Geometry(ogr.wkbLineString)
-            linestring.AddPoint(points[n][0][0], points[n][0][1])
+            if (points[n][1] or    # i.e. is a vertex
+                points_out == 0):  # start of new section
+                linestring.AddPoint(points[n][0][0], points[n][0][1])
+                points_out += 1
             
         feature.SetGeometry(linestring)
         output.CreateFeature(feature)
@@ -264,6 +278,10 @@ def make_parser():
     parser.add_argument("--get-classes", action='store_true',
         help="Just display a frequency table of classes seen"
     )
+    parser.add_argument("--progress", type=int, default=False,
+        help="Report lines proccessed every N lines"
+    )
+    
     parser.add_argument("lines", type=str,
         help="Path to OGR datasource (shapefile) containing lines"
     )
