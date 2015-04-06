@@ -24,7 +24,7 @@ class OutOfBounds(Exception):
 class UnknownClass(Exception):
     pass
 def classify_lines(opt, lines, grid):
-    """classify_lines - 
+    """classify_lines -
 
     :param Namespace opt: argparse command line options
     :param OGR layer lines: lines to classify
@@ -34,7 +34,7 @@ def classify_lines(opt, lines, grid):
     """
 
     srs = osr.SpatialReference(grid.GetProjectionRef())
-    
+
     if opt.get_classes:
         output = None
     else:
@@ -47,17 +47,17 @@ def classify_lines(opt, lines, grid):
             if layer_def.GetFieldDefn(i).GetName() in opt.fields:
                 output.CreateField(layer_def.GetFieldDefn(i))
         output.CreateField(ogr.FieldDefn('lineclass', ogr.OFTString))
-            
+
     class_count = defaultdict(lambda: 0)  # points in each class
-    
+
     raw2reclass = {}
     for n, values in enumerate(opt.values):
         for i in values:
             raw2reclass[i] = n
-    
+
     done = 0
     for value, line in iterate_lines(lines, srs, opt.fields):
-        
+
         if opt.progress and done % opt.progress == 0:
             print("Done %d" % done)
         done += 1
@@ -65,7 +65,7 @@ def classify_lines(opt, lines, grid):
         # collect and classify all the points for the line before
         # emitting anything.  'points are' ((x,y), is_vertex)
         points = [i for i in walk_line(line, opt.step_length, opt.stretch)]
-        
+
         try:
             class_raw = [get_raw_class(point[0], grid) for point in points]
         except OutOfBounds:
@@ -73,12 +73,12 @@ def classify_lines(opt, lines, grid):
 
         for i in class_raw:
             class_count[i] += 1
-            
+
         if not output:
             continue
 
         reclass = [raw2reclass[i] for i in class_raw]
-        
+
         # make a list of the block sizes for each block, i.e.
         # 0 0 0 0 1 1 1 0 0 1 1 1 1 1 1  <- reclass
         # 4 4 4 4 3 3 3 2 2 6 6 6 6 6 6  <- counts
@@ -89,7 +89,7 @@ def classify_lines(opt, lines, grid):
                 counts[start:end] = [end-start] * (end-start)
                 start = end
             end += 1
-            
+
         # start in the middle of the list
         n0 = int(len(reclass) / 2)
         n1 = n0
@@ -121,7 +121,7 @@ def classify_lines(opt, lines, grid):
                     else:
                         final_class[i] = class_
                     i += delta
-        
+
         # emit lines
         cur_class = None
         points_out = 0
@@ -143,14 +143,14 @@ def classify_lines(opt, lines, grid):
                 points_out == 0):  # start of new section
                 linestring.AddPoint(points[n][0][0], points[n][0][1])
                 points_out += 1
-            
+
         feature.SetGeometry(linestring)
         output.CreateFeature(feature)
         feature.Destroy()
-        
+
     if output:
         data_source.Destroy()
-    
+
     return class_count
 def get_grid(opt):
     """get_grid - get GDAL grid data source
@@ -160,7 +160,7 @@ def get_grid(opt):
     """
 
     grid = gdal.Open(opt.grid)
-    
+
     gt = grid.GetGeoTransform()
     grid._gt_rows = grid.RasterYSize
     grid._gt_cols = grid.RasterXSize
@@ -196,24 +196,23 @@ def get_raw_class(point, grid, band_num=1):
 
     cellx = int( (point[0] - grid._gt_left) / grid._gt_sizex )
     celly = int( (grid._gt_top - point[1]) / grid._gt_sizey )
-    
-    if (cellx < 0 or celly < 0 or 
+
+    if (cellx < 0 or celly < 0 or
         cellx > grid._gt_cols-1 or celly > grid._gt_rows-1):
         raise OutOfBounds
-        
+
     band = grid.GetRasterBand(band_num)
-    
+
     value = band.ReadRaster(cellx, celly, 1, 1, band.DataType)
-    
+
     fmt = {
         gdal.GDT_Byte: 'b',
         gdal.GDT_UInt16: 'h',
     }
-    
+
     value = struct.unpack(fmt[band.DataType], value)[0]
     return value
 
-    
 def iterate_lines(layer, srs, fields):
     """iterate_lines - Generator yielding line strings with feature id
 
@@ -236,14 +235,14 @@ def iterate_lines(layer, srs, fields):
         for line in lines:
             yield value, line
 def make_parser():
-     
+
     parser = argparse.ArgumentParser(
         description="""Clasify lines by rasters""",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    
+
     parser.add_argument("--step-length", type=float, default=10.,
-        help="How much line to skip before adding a node, if needed"
+        help="Spacing of sampling nodes along lines"
     )
     parser.add_argument("--stretch", type=float, default=1.,
         help="Stretch final step this much to get to next vertex"
@@ -281,7 +280,7 @@ def make_parser():
     parser.add_argument("--progress", type=int, default=False,
         help="Report lines proccessed every N lines"
     )
-    
+
     parser.add_argument("lines", type=str,
         help="Path to OGR datasource (shapefile) containing lines"
     )
@@ -293,7 +292,6 @@ def make_parser():
     )
 
     return parser
-
 def main():
 
     opt = make_parser().parse_args()
@@ -310,20 +308,20 @@ def main():
         for k, v in classes.items():
             print(k, v)
 def validate_options(opt):
-    
+
     ok = (len(opt.class_) == len(opt.values) and
-          (not opt.class_steps or 
+          (not opt.class_steps or
            len(opt.class_steps) == len(opt.class_)))
-    
-    print("%d classes, %d value lists, %d class specific min-steps %s" % 
-          (len(opt.class_), len(opt.values), len(opt.class_steps), 
+
+    print("%d classes, %d value lists, %d class specific min-steps %s" %
+          (len(opt.class_), len(opt.values), len(opt.class_steps),
            "ok" if ok else "ERROR: MUST BE EQUAL NUMBER OF EACH"))
     if not ok:
         return False
-        
+
     if not opt.class_steps:
         opt.class_steps = [opt.min_steps] * len(opt.class_)
-    
+
     # split space / comma separated values into lists
     ndint = lambda x: x if x in ('NoData', '*') else int(x)
     opt.values = [[ndint(j) for j in i.replace(',', ' ').split()]
@@ -335,12 +333,12 @@ def validate_options(opt):
     opt.values = [opt.values[i] for i in new_order]
     opt.class_ = [opt.class_[i] for i in new_order]
     opt.class_steps = [opt.class_steps[i] for i in new_order]
-    
+
     for class_, values, steps in zip(opt.class_, opt.values, opt.class_steps):
-        print("'%s', requires %d step%s in:" % 
+        print("'%s', requires %d step%s in:" %
               (class_, steps, 's' if steps > 1 else ''))
         print("  %s" % values)
-    
+
     return ok
 def walk_line(line, step_length, stretch):
     """walk_line - generator to return points on a line
@@ -354,22 +352,22 @@ def walk_line(line, step_length, stretch):
     """
 
     prev_point = None
-    
+
     for point in line.GetPoints():
-        
+
         if prev_point is None:  # must be first vertex
             prev_point = point
             continue
-        
+
         sep = point[0]-prev_point[0], point[1]-prev_point[1]
-        
+
         distance = sqrt(sep[0]*sep[0] + sep[1]*sep[1])
-        
+
         steps = max(1, int(distance / step_length + 0.5))
 
         dx = sep[0] / steps
         dy = sep[1] / steps
-        
+
         x,y = prev_point
         for n in range(steps):
             yield (x, y), n == 0
@@ -377,9 +375,9 @@ def walk_line(line, step_length, stretch):
             y += dy
             if sqrt(pow(x-point[0], 2) + pow(y-point[1], 2)) <= stretch:
                 break  # don't emit a very short step
-        
+
         prev_point = point
-        
+
     yield point, True  # last point on linestring
 if __name__ == '__main__':
     main()
