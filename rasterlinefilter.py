@@ -7,21 +7,15 @@ Terry Brown, Terry_N_Brown@yahoo.com, Tue Mar 10 13:07:28 2015
 import argparse
 import os
 import struct
-import sys
 
 from collections import defaultdict
 from math import sqrt
 
 from osgeo import gdal
-from osgeo import gdalconst
-from osgeo import gdal_array
 from osgeo import ogr
 from osgeo import osr
-
-import numpy as np
 class OutOfBounds(Exception):
-    pass
-class UnknownClass(Exception):
+    """Requested value for point outside raster extent"""
     pass
 def classify_lines(opt, lines, grid):
     """classify_lines -
@@ -124,6 +118,8 @@ def classify_lines(opt, lines, grid):
 
         # emit lines
         cur_class = None
+        linestring = None
+        feature = None
         points_out = 0
         for n in range(len(points)):
             if cur_class != final_class[n]:
@@ -235,7 +231,7 @@ def iterate_lines(layer, srs, fields):
         for line in lines:
             yield value, line
 def make_parser():
-
+    """return an `argparse` parser"""
     parser = argparse.ArgumentParser(
         description="""Clasify lines by rasters""",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -252,8 +248,8 @@ def make_parser():
              "switch to that class - setting for all classes"
     )
     parser.add_argument("--class-steps", type=int, action='append', default=[],
-        help="How many step-length steps in the last class defined are needed to "
-             "switch to that class - class specific setting"
+        help="How many step-length steps in the last class defined are "
+             "needed to switch to that class - class specific setting"
     )
     parser.add_argument("--class", type=str, dest="class_", action='append',
         help="Name of an output classification class", default=[]
@@ -308,7 +304,7 @@ def main():
         for k, v in classes.items():
             print(k, v)
 def validate_options(opt):
-
+    """check consistency of arguments, values for all classes etc."""
     ok = (len(opt.class_) == len(opt.values) and
           (not opt.class_steps or
            len(opt.class_steps) == len(opt.class_)))
@@ -329,7 +325,8 @@ def validate_options(opt):
     # make wildcard ('*') containing class(es) last, but we
     # need to sort values *and* class and class-steps list
     # http://stackoverflow.com/questions/7851077/how-to-return-index-of-a-sorted-list
-    new_order = sorted(range(len(opt.values)), key=lambda k: '*' in opt.values[k])
+    new_order = sorted(range(len(opt.values)),
+                       key=lambda k: '*' in opt.values[k])
     opt.values = [opt.values[i] for i in new_order]
     opt.class_ = [opt.class_[i] for i in new_order]
     opt.class_steps = [opt.class_steps[i] for i in new_order]
@@ -368,7 +365,7 @@ def walk_line(line, step_length, stretch):
         dx = sep[0] / steps
         dy = sep[1] / steps
 
-        x,y = prev_point
+        x, y = prev_point
         for n in range(steps):
             yield (x, y), n == 0
             x += dx
