@@ -1,6 +1,11 @@
 """
 rasterlinefilter.py - describe
 
+TODO:
+    
+    - "nibble" all > min_steps sections outwards, not just middle one
+    - save majority grid class as attribute
+
 Terry Brown, Terry_N_Brown@yahoo.com, Tue Mar 10 13:07:28 2015
 """
 
