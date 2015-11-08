@@ -140,8 +140,9 @@ def classify_lines(opt, lines, grid):
                     feature.SetField(field, value[field])
                 feature.SetField('lineclass', opt.class_[cur_class])
                 linestring = ogr.Geometry(ogr.wkbLineString)
-            if (points[n][1] or    # i.e. is a vertex
-                points_out == 0):  # start of new section
+            if (opt.keep_points or  # keeping all points
+                points[n][1] or     # i.e. is a vertex
+                points_out == 0):   # start of new section
                 linestring.AddPoint(points[n][0][0], points[n][0][1])
                 points_out += 1
 
@@ -280,6 +281,10 @@ def make_parser():
     )
     parser.add_argument("--progress", type=int, default=False,
         help="Report lines proccessed every N lines"
+    )
+    parser.add_argument("--keep-points", action='store_true',
+        help="Usually non-vertex non-class-change points are dropped, "
+             "but you might want to keep them for illustrations etc."
     )
 
     parser.add_argument("lines", type=str,
